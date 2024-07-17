@@ -18,6 +18,7 @@ If your install has pve folder other than `/etc/pve` (which is highly unlikely),
 
 ### A bit of explanation
 `evaluated cache size` - shown by script is data evaluated with sum of pool sizes present on system using formula above.
+
 `recommended cache size` - takes in account wether `evaluated cache size` is less than recommended 8GB minimum. In other words: If `evaluated cache size` gets below 8GB it will recommend you set 8GB, in other case it will recommend evaluated value.
 
 
