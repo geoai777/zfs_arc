@@ -14,7 +14,11 @@ If your install has pve folder other than `/etc/pve` (which is highly unlikely),
 
 ## Usage
 - download
-- run
+- run as root (because /etc/modprobe.d is owned by root and config needs to go there)
+
+### A bit of explanation
+`evaluated cache size` - shown by script is data evaluated with sum of pool sizes present on system using formula above.
+`recommended cache size` - takes in account wether `evaluated cache size` is less than recommended 8GB minimum. In other words: If `evaluated cache size` gets below 8GB it will recommend you set 8GB, in other case it will recommend evaluated value.
 
 
 ## Feature thoughts
