@@ -94,7 +94,7 @@ divider
 #
 # calculate recommended cache size
 #
-zfs_pool_sizes=`zpool list -o size | tail -n +2`
+zfs_pool_sizes=(`zpool list -o size | tail -n +2`)
 zfs_total_size=0
 
 for pool_size in "${zfs_pool_sizes[@]}"; do
