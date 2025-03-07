@@ -170,7 +170,7 @@ else
 fi
 msg ack "done"
 
-msg info "I you use ZFS as root file system don't forget to 'update-initramfs -u'"
+msg info "If you use ZFS as root file system don't forget to 'update-initramfs -u'"
 msg info "reboot is required to activate new config.\n"
 msg info "Please, have a nice day! :)"
 divider "="
