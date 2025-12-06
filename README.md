@@ -7,6 +7,8 @@ All this can be pretty confusing and it is pretty much "one time" operation, tha
 
 To simplify matter I wrote script that does everything itself and allows either to set size manually or set recommended size automatically.
 
+In version 2.0.0 script **will** populate new values to config file and `/sys/module/zfs/parameters/zfs_arc_max` directly. No reboot required.
+
 ## Configuration
 Script is pretty much ready to work, but if you require to set another `zfs.conf` location or name, do edit `mod_config` variable.
 
@@ -15,6 +17,10 @@ If your install has pve folder other than `/etc/pve` (which is highly unlikely),
 ## Usage
 - download
 - run as root (because /etc/modprobe.d is owned by root and config needs to go there)
+
+### cli options
+- `fp` - forces PVE existance check traversal. Useful when you have ZFS and do not have PVE :)
+- `fz` - forces script to run even if no ZFS pools detected. Used mainly for debug.
 
 ### A bit of explanation
 `evaluated cache size` - shown by script is data evaluated with sum of pool sizes present on system using formula above.
