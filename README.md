@@ -14,6 +14,8 @@ Script is pretty much ready to work, but if you require to set another `zfs.conf
 
 If your install has pve folder other than `/etc/pve` (which is highly unlikely), then edit `pve_dir` variable.
 
+In version 2.0.0 script got color formatting. To turn it off just set variable `format` to `off`. Can become handy if terminal does not evaluate color codes. 
+
 ## Usage
 - download
 - run as root (because /etc/modprobe.d is owned by root and config needs to go there)
