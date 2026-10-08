@@ -14,7 +14,8 @@
 # 1.1.1 - minor bugfix, added "q" to exit.
 # 2.0.0 - posix style functions; function variable made local; more proper sh code; most code moved to functions; 
 #    added color and way to toggle it; fixed rare border case;
-# 2.0.1 - removed bash version check; implemented posix comliance;
+# 2.0.1 - removed bash version check; implemented posix compliance;
+# 2.0.2 - Fixed speling erors, enhanced warning message for fp, and other shellcheck corrections
 readonly version="2.0.1"
 readonly pve_dir="/etc/pve"
 readonly mod_config="/etc/modprobe.d/zfs.conf"
@@ -48,20 +49,26 @@ msg () {
     local prefix=""
 
     [ -z "$2" ] && return 1
-    if [ $1 = "info" ]; then
+    if [ "$1" = "info" ]; then
         prefix=" (i)"
+        if [ -z "$3" ]; then
+            printf "%b" "$prefix $2\n"
+        else
+            printf "$prefix %-49s %s\n" "$2" "$3"
+        fi
 
-        [ -z "$3" ] && printf "%b" "$prefix $2\n" || printf "$prefix %-49s $3\n" "$2"
-
-    elif [ $1 = "check"   ]; then printf " (${BLU}?${TT}) %-48s" "$2"
-    elif [ $1 = "ack"     ]; then printf "  [${GRN}+${TT}] $2\n"
-    elif [ $1 = "error"   ]; then printf " ${RED}/!\ ${TT}$2\n"
-    elif [ $1 = "warning" ]; then
+    elif [ "$1" = "check"   ]; then printf " (${BLU}?${TT}) %-48s" "$2"
+    elif [ "$1" = "ack"     ]; then printf "  [${GRN}+${TT}] %s\n" "$2"
+    elif [ "$1" = "error"   ]; then printf " ${RED}/!\ ${TT} %s\n" "$2"
+    elif [ "$1" = "warning" ]; then
         prefix=" [${YEL}*${TT}]"
-        [ -z $3 ] && printf "$prefix $2\n" || printf "$prefix %-49s $3\n" "$2"
-
-    elif [ $1 = "title"   ]; then printf "\n -[$2]--\n\n"
-    elif [ $1 = "credits" ]; then printf "%-17s geoai777@gmail.com 2024-2025\n\n" " "
+        if [ -z "$3" ]; then 
+            printf "%s %s\n" "$prefix" "$2"
+        else
+            printf "%s %-49s %s\n" "$prefix" "$2" "$3"
+        fi
+    elif [ "$1" = "title"   ]; then printf "\n -[%s]--\n\n" "$2"
+    elif [ "$1" = "credits" ]; then printf "%-17s\n\n" "geoai777@gmail.com 2024-2025"
     else return 1
     fi
 }
@@ -75,9 +82,15 @@ divider () {
 
     local divider_char=""
     # only first character will be used no matter what. There can be only one :)
-    [ -z $1 ] && divider_char="-" || divider_char=$(printf %.1s "$1")
+    if [ -z "$1" ]; then
+        divider_char="-"
+    else
+        divider_char=$(printf "%.1s" "$1")
+    fi
 
-    for i in $(seq 1 $(tput cols)); do printf $divider_char; done
+    for _ in $( seq 1 "$( tput cols )" ) ; do
+        printf "%c" "$divider_char"
+    done
 
     printf "\n"
 }
@@ -91,8 +104,13 @@ divider () {
 #
 check_root () {
     msg check "are you root?"
-    [ "$(whoami)" = 'root' ] && msg ack "I. Am. ROOT! :)" && return 0 \
-        || msg error "this script should run as root" && return 1
+    if [ "$(whoami)" = 'root' ]; then
+        msg ack "I. Am. ROOT! :)"
+        return 0
+    else
+        msg error "this script should run as root"
+        return 1
+    fi
 }
 
 #
@@ -101,7 +119,11 @@ check_root () {
 #
 check_prox () {
     msg info "check PVE is on the system"
-    [ -d $pve_dir ] && return 0 || return 1
+    if [ -d "$pve_dir" ]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 
@@ -114,7 +136,9 @@ check_prox () {
 # return: status code
 # 
 contains () {
-    [ -z "$1" -o -z "$2" ] && return 1
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        return 1
+    fi
     local findme="$1"
     shift
 
@@ -133,15 +157,16 @@ contains () {
 #
 calc_total_data () {
     # get list of all current pool sizes
-    local zfs_pool_sizes=$(zpool list -o size | tail -n +2)
+    local zfs_pool_sizes=""
+    zfs_pool_sizes="$( zpool list -o size | tail -n +2 )"
 
     # calculate total size of data
     local zfs_total_size=0
     for pool_size in $zfs_pool_sizes; do
-        zfs_total_size=$(($zfs_total_size + $(numfmt --from=iec $pool_size)))
+        zfs_total_size=$(( zfs_total_size + $( numfmt --from=iec "$pool_size" ) ))
     done
 
-    printf "%d" $zfs_total_size
+    printf "%d" "$zfs_total_size"
 }
 
 #
@@ -152,10 +177,10 @@ calc_total_data () {
 calc_cache_recommend () {
     local terabytes=1
     
-    [ ! -z $1 ] && terabytes=$(($1 / $onetb))
+    [ -n "$1" ] && terabytes=$(( 1 / onetb ))
 
     # calculate recommended cache size
-    printf "%s" $(numfmt --to=iec $((4 * $onegb + $terabytes * $onegb)))
+    printf "%s" "$( numfmt --to=iec "$(( (4 * onegb) + (terabytes * onegb) ))" )"
 }
 
 #
@@ -164,9 +189,11 @@ calc_cache_recommend () {
 # return: str
 #
 get_cur_cache_max () {
-    [ -z $1 ] && \
-        printf "%s" $(grep c_max $zfs_arc_stats | awk '{print $3}' | numfmt --to=iec) || \
-        printf "%s" $(grep c_max $zfs_arc_stats | awk '{print $3}') 
+    if [ -z "$1" ]; then
+        printf "%s" "$( grep c_max $zfs_arc_stats | awk '{print $3}' | numfmt --to=iec )"
+    else
+        printf "%s" "$( grep c_max $zfs_arc_stats | awk '{print $3}' ) "
+    fi
 }
 
 #
@@ -174,13 +201,15 @@ get_cur_cache_max () {
 # return: none
 #
 get_config_cache_max () {
-    if [ ! -z "$(grep zfs_arc_max $mod_config --no-messages)" ]; then
-        local arc_size="$(awk -v i=1 -v pat='zfs_arc_max' '$0~pat{i--}i=0' $mod_config | awk -F= '{print $2}')"
-        [ ! -z $arc_size ] && \
-            msg info "  system will use on boot (defined in config)" "$(echo $arc_size | numfmt --to=iec)"
+   RESULT="$( grep -q zfs_arc_max $mod_config --no-messages )"
+    if [ -n "$RESULT" ]; then
+        local arc_size
+        arc_size="$( awk -v i=1 -v pat='zfs_arc_max' '$0~pat{i--}i=0' $mod_config | awk -F= '{print $2}' )"
+        [ -n "$arc_size" ] && \
+            msg info "  system will use on boot (defined in config)" "$( echo "$arc_size" | numfmt --to=iec )"
     else
-        msg warning "there is no zfs_arc_size set in config.No big deal it will be created."
-        msg warning "Still, this ${IT}could${TT} mean that tere is a misconfiguration of ZFS."
+        msg warning "there is no zfs_arc_size set in config. No big deal it will be created."
+        msg warning "Still, this ${IT}could${TT} mean that there is a misconfiguration of ZFS."
     fi
 }
 
@@ -201,21 +230,22 @@ main () {
     check_root
     [ $? -eq 1 ] && exit 1
 
-    contains "fp" $* 
+    contains "fp" "$*"
     if [ $? -eq 1 ]; then
+        msg info "nofp"
         check_prox
-        [ $? -eq 1 ] && exit 1
+        [ $? -eq 1 ] && msg info "no proxMx" && exit 1
     fi
     divider
 
     zfs_total_size=$(calc_total_data)
-    contains "fz" $* 
-    [ $? -eq 1 ] && msg info "nofz" && \
-        [ $zfs_total_size -eq 0 ] && msg error "No zfs pools with data found, no point in cache evaluation. Try creating pools first." && exit 1
+    contains "fz" "$*" 
+    [ "$?" -eq 1 ] && msg info "nofz" && \
+        [ "$zfs_total_size" -eq 0 ] && msg error "No zfs pools with data found, no point in cache evaluation. Try creating pools first." && exit 1
 
-    cache_recommend=$(calc_cache_recommend $zfs_total_size)
+    cache_recommend=$( calc_cache_recommend "$zfs_total_size" )
 
-    msg warning "Your present zpool sizes sum is:" "$(numfmt --to=iec $zfs_total_size)"
+    msg warning "Your present zpool sizes sum is:" "$( numfmt --to=iec "$zfs_total_size" )"
     msg warning "Evaluated cache size is:" "$cache_recommend"
     msg info "Keep in mind, it is good practice to have at least"
     msg info "8GB of cache, even with small storage space."
@@ -228,14 +258,19 @@ main () {
     sys_arc_size=$(get_cur_cache_max)
     msg info "  system is using right now (from /proc):" "$sys_arc_size"
 
-    [ ! -f $mod_config ] && \
-        msg warning "ZFS config file at path $mod_config not found. No big deal it will be created." && \
-        msg warning "Still, this ${IT}could${TT} mean that tere is a misconfiguration of ZFS." || \
+    if [ ! -f $mod_config ]; then
+        msg warning "ZFS config file at path $mod_config not found. No big deal it will be created."
+        msg warning "Still, this ${IT}could${TT} mean that tere is a misconfiguration of ZFS."
+    else
         get_config_cache_max
+    fi
+        
 
     # if calculated cache is less than recommended minimum, favor recommended minimal value
-    if [ $(numfmt --from=iec $cache_recommend) -le $(($onegb * 8)) ]; then
-        cache_recommend=$(numfmt --to=iec $(($onegb * 8)))
+    num_recommend="$( numfmt --from=iec "$cache_recommend" )"
+
+    if [ "$num_recommend" -le "$(( onegb * 8 ))" ]; then
+        cache_recommend="$( numfmt --to=iec "$(( onegb * 8 ))" )"
     fi
 
     msg info "Enter ARC max RAM size here. Valid options are:"
@@ -244,32 +279,38 @@ main () {
     
     while true; do
         msg check "  - Ctrl+C or q - exit"
-        read new_size_human
-            $(printf "%s" $new_size_human | grep -qxE '^[0-9]+[GKMPT]?$')
-            [ $? -eq 0 ] && break
-            [ $new_size_human = "a" ] && new_size_human=$cache_recommend && break
-            [ $new_size_human = "q" ] && exit 1
+        read -r new_size_human
+            printf "%s" "$new_size_human" | grep -qxE '^[0-9]+[GKMPT]?$'
+            result="$?"
+            [ "$result" -eq 0 ] && break
+            [ "$new_size_human" = "a" ] && new_size_human=$cache_recommend && break
+            [ "$new_size_human" = "q" ] && exit 1
     done
 
-    new_size=$(numfmt --from=iec $new_size_human)
+    new_size=$( numfmt --from=iec "$new_size_human" )
 
     # write/replace cache size in file
     msg info "setting new zfs arc ram size to:" "${GRN}$new_size_human${TT}"
-    if [ ! -z "$(grep "zfs_arc_max" $mod_config --no-messages)" ]; then
+    message_result="$(grep "zfs_arc_max" $mod_config --no-messages)"
+    if [ -n "$message_result" ]; then
         sed -i -e "s/^\s*options zfs zfs_arc_max=[0-9]*/options zfs zfs_arc_max=$new_size/g" $mod_config
     else
-        echo "options zfs zfs_arc_max=$new_size" >> $mod_config
+        echo "options zfs zfs_arc_max=$new_size" >> "$mod_config"
     fi
 
     msg info "setting current arc_cache_max to" "$new_size"
-    printf "%d" $new_size > $zfs_arc_param
-    sys_arc_cache=$(get_cur_cache_max "raw")
+    printf "%d" $(( "$new_size" > "$zfs_arc_param" ))
+    sys_arc_cache="$( get_cur_cache_max "raw" )"
     msg info "reading active arc_cache_value" "$sys_arc_cache"
-    [ "$sys_arc_cache" = "$new_size" ] && msg info "system value update successful" || msg error "failed to update system value"
+    if [ "$sys_arc_cache" = "$new_size" ]; then
+        msg info "system value update successful"
+    else
+        msg error "failed to update system value"
+    fi
 
     msg info "If you use ZFS as root file system don't forget to 'update-initramfs -u'"
     divider "="
 
 }
 
-main $*
+main "$*"
